@@ -25,7 +25,8 @@ export interface JobHost {
   runner: Runner;
   log: Logger;
   onOutput(job: Job, delta: string, offset: number): void;
-  onEnd(job: Job): void | Promise<void>;
+  /** `awaited`: a tool call was blocked on the job when it ended and gets the result directly. */
+  onEnd(job: Job, awaited: boolean): void | Promise<void>;
 }
 
 export interface StartRequest {
@@ -311,9 +312,10 @@ export class JobManager {
     const status = w.job.killReason ? "killed" : exitCode === null ? "lost" : "exited";
     const job = this.#host.jobs.update(w.job.id, { status, exitCode, endedAt: Date.now() }) ?? w.job;
     this.#host.log.info("job ended", { jobId: job.id, status, exitCode });
+    const awaited = w.waiters.size > 0;
     for (const fn of w.waiters) fn();
     try {
-      await this.#host.onEnd(job);
+      await this.#host.onEnd(job, awaited);
     } catch (error) {
       this.#host.log.warn("job end handler failed", { jobId: job.id, error: String(error) });
     }

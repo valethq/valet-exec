@@ -10,9 +10,9 @@ jobs outlive valet. Owner only: both tools are hidden from and refuse `trusted` 
 - Runs `bash -c <command>` (configurable) and waits up to `yieldMs` (default 10 s, max 10 min). A command that
   finishes in time returns its combined stdout+stderr and `[job N · exit 0 · 1.2s]`. One that doesn't keeps
   running as background job N, and the call returns the output so far.
-- `background: true` returns immediately. `onExit` decides what the session sees when a background job ends:
-  `notice` (a system notice part, the default), `wake` (a user message with the tail of the log, which starts a
-  run), or `none`.
+- `background: true` returns immediately. When a background job ends, the model is notified: a message with
+  the exit status and the tail of the log, which starts a run if the session is idle (see Notifications).
+  `onExit: "none"` opts out, per call or in config. A job the model or user killed themselves, or one a `process poll` was waiting on when it ended, does not notify.
 - The working directory persists per session, like a terminal: a trailing `cd` sticks for the next call.
 - Output in a result is cut to the first 2 KB and last 30 KB; `process log` pages the full log.
 - stdin is `/dev/null` unless `stdin: true`, which opens a FIFO that `process write` feeds. No PTY.
@@ -47,6 +47,14 @@ Without user systemd (`runner: "detached"`, or `auto` when `systemctl --user` fa
 and process group instead. That survives valet exiting on its own, but not a service manager that kills
 valet's whole cgroup.
 
+## Notifications
+
+valet has no message kind for "something the model should know", so this plugin posts a `system` message with
+`meta.notification = { source: "valet-exec", kind: "job-end", jobId }`, authored by the principal who started the
+job. valet-agent treats such a message like a user message: it is in the model's history, and it starts a run
+under the author's role. Only plugins can post one; the REST API can't set `meta`. There is no notice part for
+job ends any more, since the model can't see those.
+
 ## Events
 
 - `exec.job.end` (action event) and `exec.output` (signal) with the job id, session and output delta.
@@ -63,7 +71,7 @@ valet's whole cgroup.
         "shell": "/bin/bash",
         "yieldMs": 10000,
         "inheritEnv": true,
-        "onExit": "notice",
+        "onExit": "notify",
         "logRetentionDays": 14,
         "headBytes": 2048,
         "tailBytes": 30720

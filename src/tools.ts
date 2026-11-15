@@ -47,9 +47,8 @@ const SIGNALS = ["SIGTERM", "SIGINT", "SIGHUP", "SIGKILL", "SIGQUIT", "SIGUSR1",
 const LOG_LIMIT = 30_000;
 const LOG_LIMIT_MAX = 200_000;
 const ON_EXIT_TEXT: Record<OnExit, string> = {
-  notice: "A notice is posted in this session when it ends",
-  wake: "This session is woken with a message when it ends",
-  none: "Nothing is posted when it ends",
+  notify: "You will be notified in this session when it ends",
+  none: "You will not be notified when it ends",
 };
 
 const text = (t: string, isError = false, meta?: Record<string, unknown>): ToolResult => ({
@@ -108,7 +107,7 @@ const EXEC_DESCRIPTION = `Run a shell command (bash -c) on the host. Use this fo
 - The call waits up to yieldMs (default 10s) for the command. If it finishes, you get its combined stdout+stderr and exit status. If not, it keeps running as a background job and you get the job id and the output so far; follow up with the process tool (poll with waitMs to block until it ends, log to page output, write for stdin, kill).
 - Jobs run in their own systemd unit, outside valet: they survive valet restarts, and their memory is not valet's.
 - The working directory persists between calls in a session (a trailing \`cd\` sticks), starting at the project workspace. cwd overrides it for one call.
-- background: true returns right away. Set onExit: "wake" to have this session woken with a message when a long job ends; "notice" (the usual default) only posts a notice.
+- background: true returns right away. When a background job ends you are notified with a message holding its exit status and the end of its output, which starts a new turn if you are idle, so you do not need to poll or sleep. Pass onExit: "none" to opt out.
 - Long output is cut to the start and the end; the full log stays readable with process log.
 - stdin is /dev/null unless stdin: true, which opens a pipe that process write feeds. There is no TTY, so interactive programs will not work: use non-interactive flags.`;
 
@@ -149,8 +148,8 @@ export function execTool(deps: ToolDeps): ToolDefinition<ExecInput> {
         stdin: { type: "boolean", description: "Open a stdin pipe that process write can feed." },
         onExit: {
           type: "string",
-          enum: ["notice", "wake", "none"],
-          description: "What to post in this session when a background job ends.",
+          enum: ["notify", "none"],
+          description: "Whether to notify this session when a background job ends. Default notify.",
         },
       },
     },

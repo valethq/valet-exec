@@ -128,7 +128,7 @@ test("exec runs through valet-agent's tool loop, and cd persists in the session"
   expect(second.parts[0].data.output).toStartWith(`${join(workspace, "sub")}\n[job 2 · exit 4 · `);
 });
 
-test("a background job survives a valet restart and posts a notice when it ends", async () => {
+test("a background job survives a valet restart, then notifies the model and wakes the session", async () => {
   const reply = await call("exec", {
     command: "sleep 4; echo finished",
     background: true,
@@ -139,11 +139,22 @@ test("a background job survives a valet restart and posts a notice when it ends"
   await stop();
   expect(existsSync(join(jobDir, "exit"))).toBe(false); // still running with valet down
   await boot();
-  const notice = await waitFor(async () => {
+  const note = await waitFor(async () => {
     const list: Json[] = await api(`/api/core/sessions/${sessionId}/messages`);
-    return list.find((m) => m.message.role === "system" && m.parts[0]?.type === "notice");
+    return list.find((m) => m.message.role === "system" && m.message.meta.notification);
   });
-  expect(notice.parts[0].data.text).toMatch(/^exec job 3 exit 0 after \d+\.\ds: slow thing$/);
+  expect(note.message.meta.notification).toEqual({ source: "valet-exec", kind: "job-end", jobId: 3 });
+  expect(note.parts.map((p: Json) => p.type)).toEqual(["text"]); // no notice part: the model can't see those
+  expect(note.parts[0].data.text).toMatch(
+    /^\[valet-exec\] exec job 3 exit 0 after \d+\.\ds: slow thing\n\nLast output:\nfinished/,
+  );
+  // the notification started a run: the scripted model saw it and answered
+  const woken = await waitFor(async () => {
+    const list: Json[] = await api(`/api/core/sessions/${sessionId}/messages`);
+    const after = list.filter((m) => m.message.seq > note.message.seq && m.message.role === "assistant");
+    return after[0]?.message.status === "complete" && after[0];
+  });
+  expect(woken.parts[0].data.text).toMatch(/^notified: \[valet-exec\] exec job 3 exit 0/);
   expect(readFileSync(join(jobDir, "out.log"), "utf8")).toBe("finished\n");
 
   const poll = await call("process", { action: "poll", jobId: 3 });
@@ -158,4 +169,15 @@ test("a foreground command that outlasts yieldMs becomes a job that process can 
   expect(poll.parts[0].data.output).toStartWith("late\n[job 4 · exit 0 · ");
   const list = await call("process", { action: "list" });
   expect(list.parts[0].data.output).toContain("4\texit 0\t");
+});
+
+test("a job the model kills itself, or opts out with onExit none, does not notify", async () => {
+  await call("exec", { command: "sleep 30", background: true });
+  await call("exec", { command: "sleep 1", background: true, onExit: "none" });
+  const killed = await call("process", { action: "kill", jobId: 5 });
+  expect(killed.parts[0].data.output).toMatch(/killed \(user\)/);
+  await Bun.sleep(2500);
+  const list: Json[] = await api(`/api/core/sessions/${sessionId}/messages`);
+  const jobs = list.filter((m) => m.message.meta.notification).map((m) => m.message.meta.notification.jobId);
+  expect(jobs).toEqual([3]); // job 4 ended while process poll was waiting on it, so poll told the model
 });

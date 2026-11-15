@@ -17,7 +17,7 @@ const make = (runner: Runner, opts?: Parameters<typeof harness>[1]) => {
   return h;
 };
 
-const base = { cwd: tmpdir(), onExit: "notice" as const };
+const base = { cwd: tmpdir(), onExit: "notify" as const };
 
 for (const runner of [detachedRunner, systemdRunner]) {
   describe.skipIf(runner.kind === "systemd" && !hasSystemd)(`${runner.kind} runner`, () => {

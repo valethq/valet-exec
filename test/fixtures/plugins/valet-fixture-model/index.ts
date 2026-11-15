@@ -1,6 +1,6 @@
 import { definePlugin, type InferenceChunk, type ModelProvider } from "@valethq/sdk";
 
-// A scripted model: a user message holding {"tool":..., "input":...} becomes that tool call; a tool result is echoed back.
+// A scripted model: a "[valet-exec]" notification is acknowledged; a user message holding {"tool":..., "input":...} becomes that tool call; a tool result is echoed back.
 const provider: ModelProvider = {
   kind: "model",
   id: "fixture-model",
@@ -20,6 +20,11 @@ const provider: ModelProvider = {
     const text = last?.content.map((c) => (c.type === "text" ? c.text : "")).join("") ?? "";
     if (last?.role === "tool") {
       yield { type: "text-delta", text: `tool said: ${text}` };
+      yield { type: "finish", reason: "stop" };
+      return;
+    }
+    if (text.startsWith("[valet-exec]")) {
+      yield { type: "text-delta", text: `notified: ${text.split("\n")[0]}` };
       yield { type: "finish", reason: "stop" };
       return;
     }

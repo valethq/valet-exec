@@ -16,7 +16,7 @@
       "shell": { "type": "string" },
       "yieldMs": { "type": "number" },
       "inheritEnv": { "type": "boolean" },
-      "onExit": { "type": "string", "enum": ["notice", "wake", "none"] },
+      "onExit": { "type": "string", "enum": ["notify", "none"] },
       "logRetentionDays": { "type": "number" },
       "headBytes": { "type": "number" },
       "tailBytes": { "type": "number" }

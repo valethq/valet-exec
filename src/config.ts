@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 
 export type RunnerKind = "systemd" | "detached";
-export type OnExit = "notice" | "wake" | "none";
+export type OnExit = "notify" | "none";
 
 export interface ExecConfig {
   /** How jobs are detached from valet. "auto" picks systemd user units when available, else a detached process group. */
@@ -12,7 +12,7 @@ export interface ExecConfig {
   yieldMs?: number;
   /** Start jobs with valet's own environment (plus the call's `env`). Default true. */
   inheritEnv?: boolean;
-  /** Default for what happens in the session when a background job ends. Default "notice". */
+  /** Default for whether the model is notified (and its session woken) when a background job ends. Default "notify". */
   onExit?: OnExit;
   /** Finished jobs and their logs are deleted after this many days. Default 14. */
   logRetentionDays?: number;
@@ -39,7 +39,7 @@ export function settings(cfg: ExecConfig | undefined): Settings {
     shell: cfg?.shell ?? (existsSync("/bin/bash") ? "/bin/bash" : "/bin/sh"),
     yieldMs: Math.min(cfg?.yieldMs ?? 10_000, MAX_WAIT_MS),
     inheritEnv: cfg?.inheritEnv ?? true,
-    onExit: cfg?.onExit ?? "notice",
+    onExit: cfg?.onExit ?? "notify",
     retentionMs: (cfg?.logRetentionDays ?? 14) * 86_400_000,
     headBytes: cfg?.headBytes ?? 2048,
     tailBytes: cfg?.tailBytes ?? 30_720,

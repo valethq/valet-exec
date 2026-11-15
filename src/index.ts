@@ -25,10 +25,10 @@ export default definePlugin<ExecConfig>({
         ctx.events.signal("exec.output", { jobId: job.id, sessionId: job.sessionId, delta, offset });
         ctx.ws.publish(`exec:${job.id}`, "output", { delta, offset });
       },
-      async onEnd(job) {
+      async onEnd(job, awaited) {
         ctx.ws.publish(`exec:${job.id}`, "end", summary(job));
         await ctx.events.emit("exec.job.end", summary(job));
-        await announce(ctx, job);
+        if (!awaited) await announce(ctx, job);
       },
     });
 
