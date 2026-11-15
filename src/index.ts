@@ -4,7 +4,7 @@ import { definePlugin } from "@valethq/sdk";
 import { type ExecConfig, settings } from "./config";
 import { Jobs } from "./db";
 import { JobManager } from "./jobs";
-import { announce, summary } from "./notify";
+import { announce, JOB_END, summary } from "./notify";
 import { pickRunner } from "./runner";
 import { execTool, processTool, type ToolDeps } from "./tools";
 
@@ -13,6 +13,7 @@ const PRUNE_EVERY_MS = 6 * 3_600_000;
 export default definePlugin<ExecConfig>({
   async activate(ctx) {
     let current = settings(ctx.config);
+    ctx.store.partTypes.define(JOB_END);
     let stopping = false;
     const runner = await pickRunner(ctx.config?.runner);
     const manager = new JobManager({

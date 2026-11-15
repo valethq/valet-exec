@@ -49,11 +49,11 @@ valet's whole cgroup.
 
 ## Notifications
 
-valet has no message kind for "something the model should know", so this plugin posts a `system` message with
-`meta.notification = { source: "valet-exec", kind: "job-end", jobId }`, authored by the principal who started the
-job. valet-agent treats such a message like a user message: it is in the model's history, and it starts a run
-under the author's role. Only plugins can post one; the REST API can't set `meta`. There is no notice part for
-job ends any more, since the model can't see those.
+When a background job ends, the plugin posts a `system` message holding one `valet-exec/job-end@1` part, a
+plugin-defined part type (ARCHITECTURE 9.4) that the plugin registers on activate. People see its title,
+"Process finished: <label> (exit 0, 30s)", collapsed. The model sees its text: the status and the last 2 KB of the
+log. `data` carries `jobId`, `status`, `exitCode`, `killReason`, `label` and `durationMs`. The type `wakes`, so
+valet-agent runs on it like a user message, under the role of the principal who started the job.
 
 ## Events
 

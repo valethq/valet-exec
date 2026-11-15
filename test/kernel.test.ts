@@ -141,10 +141,19 @@ test("a background job survives a valet restart, then notifies the model and wak
   await boot();
   const note = await waitFor(async () => {
     const list: Json[] = await api(`/api/core/sessions/${sessionId}/messages`);
-    return list.find((m) => m.message.role === "system" && m.message.meta.notification);
+    return list.find((m) => m.message.role === "system" && m.parts[0]?.type === "custom");
   });
-  expect(note.message.meta.notification).toEqual({ source: "valet-exec", kind: "job-end", jobId: 3 });
-  expect(note.parts.map((p: Json) => p.type)).toEqual(["text"]); // no notice part: the model can't see those
+  expect(note.parts).toHaveLength(1);
+  expect(note.parts[0].data).toMatchObject({
+    kind: "valet-exec/job-end@1",
+    title: expect.stringMatching(/^Process finished: slow thing \(exit 0, \d+\.\ds\)$/),
+    data: { jobId: 3, status: "exited", exitCode: 0, label: "slow thing" },
+  });
+  const types: Json[] = await api("/api/core/part-types");
+  expect(types.find((t) => t.id === "valet-exec/job-end@1")).toMatchObject({
+    wakes: true,
+    plugin: { id: "valet-exec", repository: "https://github.com/valethq/valet-exec" },
+  });
   expect(note.parts[0].data.text).toMatch(
     /^\[valet-exec\] exec job 3 exit 0 after \d+\.\ds: slow thing\n\nLast output:\nfinished/,
   );
@@ -178,6 +187,6 @@ test("a job the model kills itself, or opts out with onExit none, does not notif
   expect(killed.parts[0].data.output).toMatch(/killed \(user\)/);
   await Bun.sleep(2500);
   const list: Json[] = await api(`/api/core/sessions/${sessionId}/messages`);
-  const jobs = list.filter((m) => m.message.meta.notification).map((m) => m.message.meta.notification.jobId);
+  const jobs = list.filter((m) => m.parts[0]?.type === "custom").map((m) => m.parts[0].data.data.jobId);
   expect(jobs).toEqual([3]); // job 4 ended while process poll was waiting on it, so poll told the model
 });

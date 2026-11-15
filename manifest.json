@@ -4,6 +4,7 @@
   "name": "Exec",
   "version": "0.1.0",
   "description": "exec and process tools: shell jobs that run in their own systemd units and outlive valet.",
+  "repository": "https://github.com/valethq/valet-exec",
   "valet": "^0.1.0",
   "main": "./src/index.ts",
   "provides": ["tools@1"],
