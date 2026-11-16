@@ -32,13 +32,17 @@ function shim(id: string, dir: string): void {
   );
 }
 
+// Windows shells end lines with CRLF; the assertions below are written for LF.
+const lf = (v: Json): Json => JSON.parse(JSON.stringify(v).replaceAll("\\r\\n", "\\n"));
+const PWD = process.platform === "win32" ? "(Get-Location).Path" : "pwd"; // PowerShell's pwd prints a table
+
 async function api(path: string, init: { method?: string; body?: unknown } = {}): Promise<Json> {
   const res = await fetch(`${base}${path}`, {
     method: init.method ?? "GET",
     headers: AUTH,
     ...(init.body === undefined ? {} : { body: JSON.stringify(init.body) }),
   });
-  return res.json();
+  return lf(await res.json());
 }
 
 async function waitFor<T>(fn: () => Promise<T | undefined | false>, ms = 15_000): Promise<T> {
@@ -123,7 +127,7 @@ test("exec runs through valet-agent's tool loop, and cd persists in the session"
   expect(first.parts[0].data).toMatchObject({ name: "exec", status: "done" });
   expect(first.parts[0].data.output).toMatch(/^hello\n\[job 1 · exit 0 · /);
 
-  const second = await call("exec", { command: "pwd; exit 4" });
+  const second = await call("exec", { command: `${PWD}; exit 4` });
   expect(second.parts[0].data.status).toBe("error");
   expect(second.parts[0].data.output).toStartWith(`${join(workspace, "sub")}\n[job 2 · exit 4 · `);
 });
@@ -164,7 +168,7 @@ test("a background job survives a valet restart, then notifies the model and wak
     return after[0]?.message.status === "complete" && after[0];
   });
   expect(woken.parts[0].data.text).toMatch(/^notified: \[valet-exec\] exec job 3 exit 0/);
-  expect(readFileSync(join(jobDir, "out.log"), "utf8")).toBe("finished\n");
+  expect(readFileSync(join(jobDir, "out.log"), "utf8").replaceAll("\r\n", "\n")).toBe("finished\n");
 
   const poll = await call("process", { action: "poll", jobId: 3 });
   expect(poll.parts[0].data.output).toStartWith("finished\n[job 3 · exit 0 · ");

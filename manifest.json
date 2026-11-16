@@ -3,7 +3,7 @@
   "id": "valet-exec",
   "name": "Exec",
   "version": "0.1.0",
-  "description": "exec and process tools: shell jobs that run in their own systemd units and outlive valet.",
+  "description": "exec and process tools: shell jobs that outlive valet: systemd units on Linux, launchd jobs on macOS, detached supervisors on Windows.",
   "repository": "https://github.com/valethq/valet-exec",
   "valet": "^0.1.0",
   "main": "./src/index.ts",
@@ -13,7 +13,7 @@
     "type": "object",
     "additionalProperties": false,
     "properties": {
-      "runner": { "type": "string", "enum": ["auto", "systemd", "detached"] },
+      "runner": { "type": "string", "enum": ["auto", "systemd", "launchd", "detached", "supervisor"] },
       "shell": { "type": "string" },
       "yieldMs": { "type": "number" },
       "inheritEnv": { "type": "boolean" },

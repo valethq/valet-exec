@@ -1,4 +1,5 @@
 import {
+  appendFileSync,
   chmodSync,
   closeSync,
   constants,
@@ -14,8 +15,11 @@ import type { Logger } from "@valethq/sdk";
 import type { OnExit, Settings } from "./config";
 import type { Job, Jobs, KillReason } from "./db";
 import { readRange, sizeOf } from "./output";
-import { bootId, type Runner, runners } from "./runner";
-import { envScript, type JobFiles, jobFiles, wrapperScript } from "./script";
+import { supervisorLaunch } from "./launch";
+import { bootId } from "./platform";
+import type { Runner } from "./runner";
+import { runners } from "./runner";
+import { cleanEnv, envScript, type JobFiles, jobFiles, wrapperScript } from "./script";
 
 export interface JobHost {
   jobs: Jobs;
@@ -123,16 +127,31 @@ export class JobManager {
     try {
       mkdirSync(dir, { recursive: true, mode: 0o700 });
       const env = { ...(s.inheritEnv ? process.env : {}), ...req.env, VALET_EXEC_JOB: String(job.id) };
-      writeFileSync(files.env, envScript(env), { mode: 0o600 });
-      writeFileSync(
-        files.wrapper,
-        wrapperScript({ files, shell: s.shell, cwd: req.cwd, command: req.command, stdin: job.stdin }),
-        { mode: 0o700 },
-      );
-      chmodSync(files.env, 0o600);
       writeFileSync(files.log, "");
       job = jobs.update(job.id, { dir }) as Job;
-      const started = await runner.start({ id: job.id, wrapper: files.wrapper, dir, label });
+      let started: { unit?: string; pid?: number };
+      if (runner.launch === "sh") {
+        writeFileSync(files.env, envScript(env), { mode: 0o600 });
+        writeFileSync(
+          files.wrapper,
+          wrapperScript({ files, shell: s.shell, cwd: req.cwd, command: req.command, stdin: job.stdin }),
+          { mode: 0o700 },
+        );
+        chmodSync(files.env, 0o600);
+        started = await runner.start({ id: job.id, wrapper: files.wrapper, dir, label, env: {} });
+      } else {
+        const launch = supervisorLaunch({
+          files,
+          shell: s.shell,
+          cwd: req.cwd,
+          command: req.command,
+          stdin: job.stdin,
+        });
+        if (launch.script) writeFileSync(launch.script.path, launch.script.content);
+        writeFileSync(files.config, JSON.stringify(launch.config), { mode: 0o600 });
+        if (job.stdin) writeFileSync(files.stdin, "");
+        started = await runner.start({ id: job.id, wrapper: "", dir, label, env: cleanEnv(env) });
+      }
       job = jobs.update(job.id, { unit: started.unit ?? null, pid: started.pid ?? null }) as Job;
     } catch (error) {
       jobs.update(job.id, { dir, status: "lost", endedAt: Date.now() });
@@ -204,11 +223,16 @@ export class JobManager {
     }, KILL_GRACE_MS);
   }
 
-  /** Feeds the job's stdin FIFO. `eof` closes it once the data is written. */
+  /** Feeds the job's stdin: the FIFO (sh wrapper) or the file its supervisor tails. `eof` closes it once the data is written. */
   async write(id: number, data: string, eof: boolean): Promise<void> {
     const w = this.#watched.get(id);
     if (!w) throw new Error(`job ${id} is not running`);
     if (!w.job.stdin) throw new Error(`job ${id} was started without stdin: true`);
+    if (this.#runnerFor(w.job).launch === "supervisor") {
+      if (data) appendFileSync(w.files.stdin, data);
+      if (eof) writeFileSync(w.files.stdinEof, "");
+      return;
+    }
     if (data) await writeFifo(w.files.stdin, new TextEncoder().encode(data));
     if (eof) {
       const holder = Number(readFileSync(w.files.stdinHolder, "utf8").trim());
@@ -312,6 +336,11 @@ export class JobManager {
     const status = w.job.killReason ? "killed" : exitCode === null ? "lost" : "exited";
     const job = this.#host.jobs.update(w.job.id, { status, exitCode, endedAt: Date.now() }) ?? w.job;
     this.#host.log.info("job ended", { jobId: job.id, status, exitCode });
+    await this.#runnerFor(job)
+      .release?.(job)
+      .catch((error: unknown) => {
+        this.#host.log.warn("runner release failed", { jobId: job.id, error: String(error) });
+      });
     const awaited = w.waiters.size > 0;
     for (const fn of w.waiters) fn();
     try {

@@ -18,10 +18,18 @@ const DROPPED = new Set([
   "WATCHDOG_USEC",
 ]);
 
+/** The variables a job should see: defined, validly named, and not meant for valet's own unit. */
+export function cleanEnv(env: Record<string, string | undefined>): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(env).filter(
+      (e): e is [string, string] => e[1] !== undefined && NAME.test(e[0]) && !DROPPED.has(e[0]),
+    ),
+  );
+}
+
 /** An `export` line per variable, sourced by the wrapper and deleted right after (it may hold secrets). */
 export function envScript(env: Record<string, string | undefined>): string {
-  return Object.entries(env)
-    .filter((e): e is [string, string] => e[1] !== undefined && NAME.test(e[0]) && !DROPPED.has(e[0]))
+  return Object.entries(cleanEnv(env))
     .map(([k, v]) => `export ${k}=${quote(v)}\n`)
     .join("");
 }
@@ -36,6 +44,10 @@ export interface JobFiles {
   cwd: string;
   stdin: string;
   stdinHolder: string;
+  /** Supervisor launches: what to run (job.json), the generated script for PowerShell and cmd, and the EOF marker. */
+  config: string;
+  script: string;
+  stdinEof: string;
 }
 
 export function jobFiles(dir: string): JobFiles {
@@ -49,6 +61,9 @@ export function jobFiles(dir: string): JobFiles {
     cwd: join(dir, "cwd"),
     stdin: join(dir, "stdin"),
     stdinHolder: join(dir, "stdin.pid"),
+    config: join(dir, "job.json"),
+    script: join(dir, "command"),
+    stdinEof: join(dir, "stdin.eof"),
   };
 }
 

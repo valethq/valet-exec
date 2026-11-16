@@ -1,12 +1,19 @@
-import { existsSync } from "node:fs";
+import { defaultShell } from "./platform";
 
-export type RunnerKind = "systemd" | "detached";
+export type RunnerKind = "systemd" | "launchd" | "detached" | "supervisor";
 export type OnExit = "notify" | "none";
 
 export interface ExecConfig {
-  /** How jobs are detached from valet. "auto" picks systemd user units when available, else a detached process group. */
+  /**
+   * How jobs are detached from valet. "auto" picks systemd user units on Linux and launchd jobs on macOS when
+   * they work, else a detached process group; on Windows it is always "supervisor", a small detached Bun
+   * process per job (also usable elsewhere).
+   */
   runner?: "auto" | RunnerKind;
-  /** Shell that runs each command with `-c`. Default /bin/bash, or /bin/sh when bash is missing. */
+  /**
+   * Shell that runs each command (`-c` for bash and sh; PowerShell and cmd.exe are recognised by name).
+   * Default /bin/bash, or /bin/sh when bash is missing; pwsh, then powershell, then cmd.exe on Windows.
+   */
   shell?: string;
   /** Default time an exec call waits for its command before backgrounding it. Default 10000. */
   yieldMs?: number;
@@ -36,7 +43,7 @@ export const MAX_WAIT_MS = 600_000;
 
 export function settings(cfg: ExecConfig | undefined): Settings {
   return {
-    shell: cfg?.shell ?? (existsSync("/bin/bash") ? "/bin/bash" : "/bin/sh"),
+    shell: cfg?.shell ?? defaultShell(),
     yieldMs: Math.min(cfg?.yieldMs ?? 10_000, MAX_WAIT_MS),
     inheritEnv: cfg?.inheritEnv ?? true,
     onExit: cfg?.onExit ?? "notify",

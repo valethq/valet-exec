@@ -35,6 +35,8 @@ export function kv(): PluginStorage["kv"] {
 const quiet: Logger = { debug() {}, info() {}, warn() {}, error() {} };
 
 export interface Harness {
+  /** Changes the shell for jobs started after this call. */
+  shell(path: string): void;
   manager: JobManager;
   ended: Job[];
   output: string[];
@@ -47,16 +49,26 @@ export function harness(runner: Runner, opts: { sql?: PluginStorage["sql"]; dir?
   const dir = opts.dir ?? mkdtempSync(join(tmpdir(), "valet-exec-jobs-"));
   const ended: Job[] = [];
   const output: string[] = [];
+  let shell: string | undefined;
   const manager = new JobManager({
     jobs: new Jobs(sql),
     dir,
-    settings: () => settings({ yieldMs: 2000 }),
+    settings: () => settings({ yieldMs: 2000, shell }),
     runner,
     log: quiet,
     onOutput: (_job, delta) => void output.push(delta),
     onEnd: (job) => void ended.push(job),
   });
-  return { manager, ended, output, sql, dir };
+  return {
+    manager,
+    ended,
+    output,
+    sql,
+    dir,
+    shell: (path) => {
+      shell = path;
+    },
+  };
 }
 
 export async function waitFor<T>(fn: () => T | undefined | false, ms = 10_000): Promise<T> {

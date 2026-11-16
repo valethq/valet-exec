@@ -5,6 +5,7 @@ import { type ExecConfig, settings } from "./config";
 import { Jobs } from "./db";
 import { JobManager } from "./jobs";
 import { announce, JOB_END, summary } from "./notify";
+import { initBootId } from "./platform";
 import { pickRunner } from "./runner";
 import { execTool, processTool, type ToolDeps } from "./tools";
 
@@ -15,6 +16,7 @@ export default definePlugin<ExecConfig>({
     let current = settings(ctx.config);
     ctx.store.partTypes.define(JOB_END);
     let stopping = false;
+    await initBootId();
     const runner = await pickRunner(ctx.config?.runner);
     const manager = new JobManager({
       jobs: new Jobs(ctx.storage.sql),
@@ -69,6 +71,7 @@ export default definePlugin<ExecConfig>({
       manager,
       kv: ctx.storage.kv,
       settings: () => current,
+      runner: runner.kind,
       stopping: () => stopping || ctx.signal.aborted,
     };
     const tools = [execTool(deps), processTool(deps)];

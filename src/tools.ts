@@ -2,7 +2,8 @@ import { readFileSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import { resolve } from "node:path";
 import type { PluginStorage, ToolCall, ToolDefinition, ToolResult } from "@valethq/sdk";
-import { MAX_WAIT_MS, type OnExit, type Settings } from "./config";
+import { MAX_WAIT_MS, type OnExit, type RunnerKind, type Settings } from "./config";
+import { killNote, shellPhrase, whereJobsRun } from "./describe";
 import type { Job } from "./db";
 import { duration, elapsed, failed, oneLine, statusText } from "./format";
 import type { JobManager } from "./jobs";
@@ -12,6 +13,8 @@ export interface ToolDeps {
   manager: JobManager;
   kv: PluginStorage["kv"];
   settings(): Settings;
+  /** The runner jobs start with; it shapes the tool descriptions. */
+  runner: RunnerKind;
   /** True while valet is stopping: an aborted call then leaves its job running instead of killing it. */
   stopping(): boolean;
 }
@@ -102,33 +105,38 @@ function ownerOnly(call: ToolCall): ToolResult | undefined {
   return call.role === "owner" ? undefined : text("exec is only available to the owner.", true);
 }
 
-const EXEC_DESCRIPTION = `Run a shell command (bash -c) on the host. Use this for anything you would do in a terminal: builds, tests, git, package managers, system administration.
+const execDescription = (
+  deps: ToolDeps,
+) => `Run a shell command (${shellPhrase(deps.settings().shell)}) on the host. Use this for anything you would do in a terminal: builds, tests, git, package managers, system administration.
 
 - The call waits up to yieldMs (default 10s) for the command. If it finishes, you get its combined stdout+stderr and exit status. If not, it keeps running as a background job and you get the job id and the output so far; follow up with the process tool (poll with waitMs to block until it ends, log to page output, write for stdin, kill).
-- Jobs run in their own systemd unit, outside valet: they survive valet restarts, and their memory is not valet's.
+- Jobs run ${whereJobsRun(deps.runner)}, outside valet: they survive valet restarts, and their memory is not valet's.
 - The working directory persists between calls in a session (a trailing \`cd\` sticks), starting at the project workspace. cwd overrides it for one call.
 - background: true returns right away. When a background job ends you are notified with a message holding its exit status and the end of its output, which starts a new turn if you are idle, so you do not need to poll or sleep. Pass onExit: "none" to opt out.
 - Long output is cut to the start and the end; the full log stays readable with process log.
-- stdin is /dev/null unless stdin: true, which opens a pipe that process write feeds. There is no TTY, so interactive programs will not work: use non-interactive flags.`;
+- stdin is empty unless stdin: true, which opens a pipe that process write feeds. There is no TTY, so interactive programs will not work: use non-interactive flags.`;
 
-const PROCESS_DESCRIPTION = `Manage jobs started by exec.
+const processDescription = (deps: ToolDeps) => `Manage jobs started by exec.
 
 - list: recent jobs, running first.
 - poll: status plus output since the last poll. waitMs (max 600000) blocks until the job ends or the time passes, streaming output.
 - log: page the full log. offset is a byte offset (negative counts from the end; default: the last ${LOG_LIMIT} bytes), limit defaults to ${LOG_LIMIT}.
 - write: send data to the job's stdin (needs exec stdin: true); eof: true closes stdin after writing.
-- kill: SIGTERM, then SIGKILL after 5s. signal sends one specific signal instead.`;
+- kill: SIGTERM, then SIGKILL after 5s. signal sends one specific signal instead.${killNote(deps.runner)}`;
 
 export function execTool(deps: ToolDeps): ToolDefinition<ExecInput> {
   return {
     name: "exec",
-    description: EXEC_DESCRIPTION,
+    description: execDescription(deps),
     minRole: "owner",
     inputSchema: {
       type: "object",
       required: ["command"],
       properties: {
-        command: { type: "string", description: "The command, run with bash -c." },
+        command: {
+          type: "string",
+          description: `The command, run with ${shellPhrase(deps.settings().shell)}.`,
+        },
         description: { type: "string", description: "Short label for the job list, e.g. 'Run unit tests'." },
         cwd: { type: "string", description: "Working directory for this call, relative to the current one." },
         env: {
@@ -228,7 +236,7 @@ export function processTool(deps: ToolDeps): ToolDefinition<ProcessInput> {
 
   return {
     name: "process",
-    description: PROCESS_DESCRIPTION,
+    description: processDescription(deps),
     minRole: "owner",
     inputSchema: {
       type: "object",

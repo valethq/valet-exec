@@ -1,11 +1,21 @@
 import { afterEach, describe, expect, setDefaultTimeout, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { detachedRunner, type Runner, systemdAvailable, systemdRunner } from "../src/runner";
+import { join } from "node:path";
+import { launchdAvailable, launchdRunner } from "../src/launchd";
+import {
+  detachedRunner,
+  type Runner,
+  supervisorRunner,
+  systemdAvailable,
+  systemdRunner,
+} from "../src/runner";
 import { type Harness, harness, waitFor } from "./helpers";
 
 setDefaultTimeout(20_000);
 const hasSystemd = await systemdAvailable();
+const hasLaunchd = await launchdAvailable();
+const posix = process.platform !== "win32"; // these tests run bash; test/windows.test.ts covers PowerShell and cmd
 const open: Harness[] = [];
 afterEach(() => {
   for (const h of open.splice(0)) h.manager.close();
@@ -19,8 +29,11 @@ const make = (runner: Runner, opts?: Parameters<typeof harness>[1]) => {
 
 const base = { cwd: tmpdir(), onExit: "notify" as const };
 
-for (const runner of [detachedRunner, systemdRunner]) {
-  describe.skipIf(runner.kind === "systemd" && !hasSystemd)(`${runner.kind} runner`, () => {
+const available = (runner: Runner) =>
+  posix && (runner.kind !== "systemd" || hasSystemd) && (runner.kind !== "launchd" || hasLaunchd);
+
+for (const runner of [detachedRunner, systemdRunner, launchdRunner(), supervisorRunner()]) {
+  describe.skipIf(!available(runner))(`${runner.kind} runner`, () => {
     test("runs a command to completion with output, exit code and cwd", async () => {
       const h = make(runner);
       const job = await h.manager.start({ ...base, command: "echo out; echo err >&2; cd /; exit 3" });
@@ -80,13 +93,15 @@ for (const runner of [detachedRunner, systemdRunner]) {
         command: "while read l; do echo got:$l; done; echo end",
         stdin: true,
       });
-      await waitFor(() => {
-        try {
-          return readFileSync(h.manager.files(job).stdinHolder, "utf8").trim();
-        } catch {
-          return false;
-        }
-      });
+      if (runner.launch === "sh") {
+        await waitFor(() => {
+          try {
+            return readFileSync(h.manager.files(job).stdinHolder, "utf8").trim();
+          } catch {
+            return false;
+          }
+        });
+      }
       await h.manager.write(job.id, "a\nb\n", false);
       await h.manager.write(job.id, "", true);
       expect(await h.manager.wait(job.id, 10_000)).toBe("done");
@@ -108,7 +123,7 @@ for (const runner of [detachedRunner, systemdRunner]) {
   });
 }
 
-test("a job that dies without an exit status is marked lost", async () => {
+test.skipIf(!posix)("a job that dies without an exit status is marked lost", async () => {
   const h = make(detachedRunner);
   const job = await h.manager.start({ ...base, command: "sleep 30" });
   await Bun.sleep(200);
@@ -117,7 +132,7 @@ test("a job that dies without an exit status is marked lost", async () => {
   expect(h.manager.get(job.id)).toMatchObject({ status: "lost", exitCode: null });
 });
 
-test("prune deletes finished jobs past retention", async () => {
+test.skipIf(!posix)("prune deletes finished jobs past retention", async () => {
   const h = make(detachedRunner);
   const job = await h.manager.start({ ...base, command: "true" });
   await h.manager.wait(job.id, 10_000);
@@ -125,4 +140,27 @@ test("prune deletes finished jobs past retention", async () => {
   h.sql.db.query("UPDATE p_exec_jobs SET ended_at = 0").run();
   expect(h.manager.prune()).toBe(1);
   expect(h.manager.get(job.id)).toBeUndefined();
+});
+
+describe.skipIf(!posix)("supervisor runner failures", () => {
+  test("a missing working directory is reported in the log and exits 1", async () => {
+    const h = make(supervisorRunner());
+    const job = await h.manager.start({
+      ...base,
+      cwd: join(tmpdir(), "valet-exec-no-such-dir"),
+      command: "echo hi",
+    });
+    expect(await h.manager.wait(job.id, 10_000)).toBe("done");
+    expect(h.manager.get(job.id)).toMatchObject({ status: "exited", exitCode: 1 });
+    expect(readFileSync(h.manager.files(job).log, "utf8")).toContain("cannot cd to");
+  });
+
+  test("a shell that cannot start exits 127 with the reason in the log", async () => {
+    const h = make(supervisorRunner());
+    h.shell("/no/such/shell");
+    const job = await h.manager.start({ ...base, command: "echo hi" });
+    expect(await h.manager.wait(job.id, 10_000)).toBe("done");
+    expect(h.manager.get(job.id)).toMatchObject({ status: "exited", exitCode: 127 });
+    expect(readFileSync(h.manager.files(job).log, "utf8")).toContain("cannot start /no/such/shell");
+  });
 });

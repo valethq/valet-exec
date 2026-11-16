@@ -6,7 +6,8 @@ on:
   workflow_dispatch:
 
 # The kernel test loads sibling checkouts (../valet-core, ../valet-agent, ../valet-contextmanager),
-# so this repo goes into a subfolder of the workspace next to them.
+# so this repo goes into a subfolder of the workspace next to them. valet-core and valet-agent use the
+# settings-blocks branch (part types that wake a session) until it lands on main.
 jobs:
   test:
     strategy:
@@ -24,10 +25,12 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: valethq/valet-core
+          ref: settings-blocks
           path: valet-core
       - uses: actions/checkout@v4
         with:
           repository: valethq/valet-agent
+          ref: settings-blocks
           path: valet-agent
       - uses: actions/checkout@v4
         with:
