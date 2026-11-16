@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, expect, setDefaultTimeout, test } from "bun:test";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -129,7 +129,9 @@ test("exec runs through valet-agent's tool loop, and cd persists in the session"
 
   const second = await call("exec", { command: `${PWD}; exit 4` });
   expect(second.parts[0].data.status).toBe("error");
-  expect(second.parts[0].data.output).toStartWith(`${join(workspace, "sub")}\n[job 2 · exit 4 · `);
+  expect(second.parts[0].data.output).toStartWith(
+    `${realpathSync.native(join(workspace, "sub"))}\n[job 2 · exit 4 · `,
+  );
 });
 
 test("a background job survives a valet restart, then notifies the model and wakes the session", async () => {
@@ -175,7 +177,12 @@ test("a background job survives a valet restart, then notifies the model and wak
 });
 
 test("a foreground command that outlasts yieldMs becomes a job that process can wait on", async () => {
-  const reply = await call("exec", { command: "echo early; sleep 2; echo late", yieldMs: 300 });
+  // PowerShell takes most of a second to start, so Windows needs a longer yield to see the first line
+  const slow = process.platform === "win32" ? { yieldMs: 3000, sleep: 6 } : { yieldMs: 300, sleep: 2 };
+  const reply = await call("exec", {
+    command: `echo early; sleep ${slow.sleep}; echo late`,
+    yieldMs: slow.yieldMs,
+  });
   expect(reply.parts[0].data.output).toContain("it is now background job 4");
   expect(reply.parts[0].data.output).toContain("Output so far:\nearly\n");
   const poll = await call("process", { action: "poll", jobId: 4, waitMs: 10_000 });

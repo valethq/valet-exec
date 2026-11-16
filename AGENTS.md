@@ -1,6 +1,6 @@
 # valet-exec
 
-tools@1 exec and process tools: shell jobs in their own systemd units that outlive valet.
+tools@1 exec and process tools: shell jobs that outlive valet (systemd units on Linux, launchd jobs on macOS, detached supervisors on Windows).
 
 Rules for this repo. The contract lives in `../valet-core`.
 
