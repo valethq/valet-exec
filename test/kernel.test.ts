@@ -36,6 +36,10 @@ function shim(id: string, dir: string): void {
 const lf = (v: Json): Json => JSON.parse(JSON.stringify(v).replaceAll("\\r\\n", "\\n"));
 const PWD = process.platform === "win32" ? "(Get-Location).Path" : "pwd"; // PowerShell's pwd prints a table
 
+// bash's pwd keeps the logical path (macOS tmp is a symlink); PowerShell expands Windows 8.3 short names.
+const expectedSub = () =>
+  process.platform === "win32" ? realpathSync.native(join(workspace, "sub")) : join(workspace, "sub");
+
 async function api(path: string, init: { method?: string; body?: unknown } = {}): Promise<Json> {
   const res = await fetch(`${base}${path}`, {
     method: init.method ?? "GET",

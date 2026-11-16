@@ -26,12 +26,12 @@ jobs outlive valet. Owner only: both tools are hidden from and refuse `trusted` 
 
 ## Platforms
 
-| | Linux | macOS | Windows |
-|---|---|---|---|
-| Runner (`auto`) | `systemd` user unit, else `detached` | `launchd` job, else `detached` | `supervisor` |
-| Default shell | `/bin/bash` | `/bin/bash` | `pwsh`, then `powershell`, then `cmd.exe` |
-| `kill` | SIGTERM, then SIGKILL after 5 s, to the whole job | the same, to the process group | ends the whole process tree at once (`taskkill /T /F`) |
-| Tested | CI and by hand | CI (a real launchd) | CI (pwsh 7, Windows PowerShell 5.1, cmd.exe) |
+|                 | Linux                                             | macOS                          | Windows                                                |
+| --------------- | ------------------------------------------------- | ------------------------------ | ------------------------------------------------------ |
+| Runner (`auto`) | `systemd` user unit, else `detached`              | `launchd` job, else `detached` | `supervisor`                                           |
+| Default shell   | `/bin/bash`                                       | `/bin/bash`                    | `pwsh`, then `powershell`, then `cmd.exe`              |
+| `kill`          | SIGTERM, then SIGKILL after 5 s, to the whole job | the same, to the process group | ends the whole process tree at once (`taskkill /T /F`) |
+| Tested          | CI and by hand                                    | CI (a real launchd)            | CI (pwsh 7, Windows PowerShell 5.1, cmd.exe)           |
 
 `runner` can force one (`systemd`, `launchd`, `detached`, `supervisor`); asking for one the OS doesn't have is an
 error at start-up. `supervisor` also works on Linux and macOS, which is how the Windows runner is tested there.
