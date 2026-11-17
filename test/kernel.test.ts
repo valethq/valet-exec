@@ -36,10 +36,6 @@ function shim(id: string, dir: string): void {
 const lf = (v: Json): Json => JSON.parse(JSON.stringify(v).replaceAll("\\r\\n", "\\n"));
 const PWD = process.platform === "win32" ? "(Get-Location).Path" : "pwd"; // PowerShell's pwd prints a table
 
-// bash's pwd keeps the logical path (macOS tmp is a symlink); PowerShell expands Windows 8.3 short names.
-const expectedSub = () =>
-  process.platform === "win32" ? realpathSync.native(join(workspace, "sub")) : join(workspace, "sub");
-
 async function api(path: string, init: { method?: string; body?: unknown } = {}): Promise<Json> {
   const res = await fetch(`${base}${path}`, {
     method: init.method ?? "GET",
@@ -133,7 +129,11 @@ test("exec runs through valet-agent's tool loop, and cd persists in the session"
 
   const second = await call("exec", { command: `${PWD}; exit 4` });
   expect(second.parts[0].data.status).toBe("error");
-  expect(second.parts[0].data.output).toStartWith(`${expectedSub()}\n[job 2 · exit 4 · `);
+  // Which runner starts the job decides whether pwd is logical (/var) or physical (/private/var) on macOS, and
+  // PowerShell expands Windows 8.3 short names, so compare real paths.
+  const [printed, footer] = second.parts[0].data.output.split("\n");
+  expect(realpathSync.native(printed)).toBe(realpathSync.native(join(workspace, "sub")));
+  expect(footer).toStartWith("[job 2 · exit 4 · ");
 });
 
 test("a background job survives a valet restart, then notifies the model and wakes the session", async () => {
