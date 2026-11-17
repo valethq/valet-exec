@@ -133,9 +133,7 @@ test("exec runs through valet-agent's tool loop, and cd persists in the session"
 
   const second = await call("exec", { command: `${PWD}; exit 4` });
   expect(second.parts[0].data.status).toBe("error");
-  expect(second.parts[0].data.output).toStartWith(
-    `${realpathSync.native(join(workspace, "sub"))}\n[job 2 · exit 4 · `,
-  );
+  expect(second.parts[0].data.output).toStartWith(`${expectedSub()}\n[job 2 · exit 4 · `);
 });
 
 test("a background job survives a valet restart, then notifies the model and wakes the session", async () => {
