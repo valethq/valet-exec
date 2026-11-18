@@ -8,19 +8,72 @@
   "valet": "^0.1.0",
   "main": "./src/index.ts",
   "provides": ["tools@1"],
-  "events": { "namespace": "exec" },
+  "events": {
+    "namespace": "exec"
+  },
   "configSchema": {
     "type": "object",
     "additionalProperties": false,
+    "x-group": "tools",
+    "x-icon": "terminal",
+    "x-order": 10,
     "properties": {
-      "runner": { "type": "string", "enum": ["auto", "systemd", "launchd", "detached", "supervisor"] },
-      "shell": { "type": "string" },
-      "yieldMs": { "type": "number" },
-      "inheritEnv": { "type": "boolean" },
-      "onExit": { "type": "string", "enum": ["notify", "none"] },
-      "logRetentionDays": { "type": "number" },
-      "headBytes": { "type": "number" },
-      "tailBytes": { "type": "number" }
+      "runner": {
+        "type": "string",
+        "title": "Runner",
+        "description": "How jobs detach from valet. auto picks systemd on Linux and launchd on macOS when they work.",
+        "enum": ["auto", "systemd", "launchd", "detached", "supervisor"],
+        "enumNames": ["Auto", "systemd", "launchd", "Detached", "Supervisor"],
+        "default": "auto",
+        "x-widget": "segmented"
+      },
+      "shell": {
+        "type": "string",
+        "title": "Shell",
+        "description": "Shell that runs each command. Blank uses the host default."
+      },
+      "yieldMs": {
+        "type": "number",
+        "title": "Yield (ms)",
+        "description": "How long an exec call waits before backgrounding. Cap 600000.",
+        "minimum": 0,
+        "maximum": 600000,
+        "default": 10000
+      },
+      "inheritEnv": {
+        "type": "boolean",
+        "title": "Inherit valet's environment",
+        "default": true
+      },
+      "onExit": {
+        "type": "string",
+        "title": "When a background job ends",
+        "enum": ["notify", "none"],
+        "enumNames": ["Notify the model", "Stay quiet"],
+        "default": "notify",
+        "x-widget": "segmented"
+      },
+      "logRetentionDays": {
+        "type": "number",
+        "title": "Log retention (days)",
+        "minimum": 1,
+        "default": 14,
+        "x-advanced": true
+      },
+      "headBytes": {
+        "type": "number",
+        "title": "Result head bytes",
+        "minimum": 0,
+        "default": 2048,
+        "x-advanced": true
+      },
+      "tailBytes": {
+        "type": "number",
+        "title": "Result tail bytes",
+        "minimum": 0,
+        "default": 30720,
+        "x-advanced": true
+      }
     }
   }
 }
