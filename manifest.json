@@ -11,68 +11,127 @@
   "events": {
     "namespace": "exec"
   },
-  "configSchema": {
-    "type": "object",
-    "additionalProperties": false,
-    "x-group": "tools",
-    "x-icon": "terminal",
-    "x-order": 10,
-    "properties": {
-      "runner": {
-        "type": "string",
-        "title": "Runner",
-        "description": "How jobs detach from valet. auto picks systemd on Linux and launchd on macOS when they work.",
-        "enum": ["auto", "systemd", "launchd", "detached", "supervisor"],
-        "enumNames": ["Auto", "systemd", "launchd", "Detached", "Supervisor"],
-        "default": "auto",
-        "x-widget": "segmented"
-      },
-      "shell": {
-        "type": "string",
-        "title": "Shell",
-        "description": "Shell that runs each command. Blank uses the host default."
-      },
-      "yieldMs": {
-        "type": "number",
-        "title": "Yield (ms)",
-        "description": "How long an exec call waits before backgrounding. Cap 600000.",
-        "minimum": 0,
-        "maximum": 600000,
-        "default": 10000
-      },
-      "inheritEnv": {
-        "type": "boolean",
-        "title": "Inherit valet's environment",
-        "default": true
-      },
-      "onExit": {
-        "type": "string",
-        "title": "When a background job ends",
-        "enum": ["notify", "none"],
-        "enumNames": ["Notify the model", "Stay quiet"],
-        "default": "notify",
-        "x-widget": "segmented"
-      },
-      "logRetentionDays": {
-        "type": "number",
-        "title": "Log retention (days)",
-        "minimum": 1,
-        "default": 14,
-        "x-advanced": true
-      },
-      "headBytes": {
-        "type": "number",
-        "title": "Result head bytes",
-        "minimum": 0,
-        "default": 2048,
-        "x-advanced": true
-      },
-      "tailBytes": {
-        "type": "number",
-        "title": "Result tail bytes",
-        "minimum": 0,
-        "default": 30720,
-        "x-advanced": true
+  "settings": {
+    "sections": {
+      "tools": {
+        "subsections": [
+          {
+            "id": "jobs",
+            "label": "Jobs",
+            "items": [
+              {
+                "id": "runner",
+                "label": "Runner",
+                "summary": "How jobs detach from valet. auto picks systemd on Linux and launchd on macOS when they work.",
+                "input": {
+                  "type": "select",
+                  "options": [
+                    {
+                      "value": "auto",
+                      "label": "Auto"
+                    },
+                    {
+                      "value": "systemd",
+                      "label": "systemd"
+                    },
+                    {
+                      "value": "launchd",
+                      "label": "launchd"
+                    },
+                    {
+                      "value": "detached",
+                      "label": "Detached"
+                    },
+                    {
+                      "value": "supervisor",
+                      "label": "Supervisor"
+                    }
+                  ],
+                  "style": "segmented",
+                  "default": "auto"
+                }
+              },
+              {
+                "id": "shell",
+                "label": "Shell",
+                "summary": "Shell that runs each command. Blank uses the host default.",
+                "input": {
+                  "type": "string"
+                }
+              },
+              {
+                "id": "yieldMs",
+                "label": "Yield (ms)",
+                "summary": "How long an exec call waits before backgrounding. Cap 600000.",
+                "input": {
+                  "type": "duration",
+                  "min": 0,
+                  "max": 600000,
+                  "default": 10000
+                }
+              },
+              {
+                "id": "inheritEnv",
+                "label": "Inherit valet's environment",
+                "input": {
+                  "type": "bool",
+                  "default": true
+                }
+              },
+              {
+                "id": "onExit",
+                "label": "When a background job ends",
+                "input": {
+                  "type": "select",
+                  "options": [
+                    {
+                      "value": "notify",
+                      "label": "Notify the model"
+                    },
+                    {
+                      "value": "none",
+                      "label": "Stay quiet"
+                    }
+                  ],
+                  "style": "segmented",
+                  "default": "notify"
+                }
+              },
+              {
+                "id": "logRetentionDays",
+                "label": "Log retention (days)",
+                "input": {
+                  "type": "int",
+                  "min": 1,
+                  "default": 14
+                },
+                "advanced": true
+              },
+              {
+                "id": "headBytes",
+                "label": "Result head bytes",
+                "input": {
+                  "type": "bytes",
+                  "min": 0,
+                  "default": 2048
+                },
+                "advanced": true
+              },
+              {
+                "id": "tailBytes",
+                "label": "Result tail bytes",
+                "input": {
+                  "type": "bytes",
+                  "min": 0,
+                  "default": 30720
+                },
+                "advanced": true
+              }
+            ]
+          }
+        ],
+        "icon": "terminal",
+        "order": 10
       }
     }
   }
