@@ -64,7 +64,8 @@
                 "label": "Yield (ms)",
                 "summary": "How long an exec call waits before backgrounding. Cap 600000.",
                 "input": {
-                  "type": "duration",
+                  "type": "number",
+                  "unit": "duration",
                   "min": 0,
                   "max": 600000,
                   "default": 10000
@@ -101,7 +102,7 @@
                 "id": "logRetentionDays",
                 "label": "Log retention (days)",
                 "input": {
-                  "type": "int",
+                  "type": "number",
                   "min": 1,
                   "default": 14
                 },
@@ -111,7 +112,8 @@
                 "id": "headBytes",
                 "label": "Result head bytes",
                 "input": {
-                  "type": "bytes",
+                  "type": "number",
+                  "unit": "bytes",
                   "min": 0,
                   "default": 2048
                 },
@@ -121,7 +123,8 @@
                 "id": "tailBytes",
                 "label": "Result tail bytes",
                 "input": {
-                  "type": "bytes",
+                  "type": "number",
+                  "unit": "bytes",
                   "min": 0,
                   "default": 30720
                 },
