@@ -1,6 +1,13 @@
 import { expect, test } from "bun:test";
 import manifest from "../manifest.json";
 
+test("runner changes require a restart", () => {
+  const runner = manifest.settings.sections.tools.subsections
+    .flatMap((sub) => sub.items)
+    .find((item) => item.id === "runner");
+  expect(runner).toHaveProperty("apply", "restart");
+});
+
 test("numeric settings keep fractional values and their unit hints", () => {
   const items = manifest.settings.sections.tools.subsections.flatMap((sub) => sub.items);
   for (const [id, unit, min, value] of [

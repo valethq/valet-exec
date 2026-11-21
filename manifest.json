@@ -22,6 +22,7 @@
               {
                 "id": "runner",
                 "label": "Runner",
+                "apply": "restart",
                 "summary": "How jobs detach from valet. auto picks systemd on Linux and launchd on macOS when they work.",
                 "input": {
                   "type": "select",
