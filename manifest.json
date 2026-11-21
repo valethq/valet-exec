@@ -65,8 +65,7 @@
                 "label": "Yield (ms)",
                 "summary": "How long an exec call waits before backgrounding. Cap 600000.",
                 "input": {
-                  "type": "number",
-                  "unit": "duration",
+                  "type": "duration",
                   "min": 0,
                   "max": 600000,
                   "default": 10000
@@ -113,8 +112,7 @@
                 "id": "headBytes",
                 "label": "Result head bytes",
                 "input": {
-                  "type": "number",
-                  "unit": "bytes",
+                  "type": "bytes",
                   "min": 0,
                   "default": 2048
                 },
@@ -124,8 +122,7 @@
                 "id": "tailBytes",
                 "label": "Result tail bytes",
                 "input": {
-                  "type": "number",
-                  "unit": "bytes",
+                  "type": "bytes",
                   "min": 0,
                   "default": 30720
                 },
