@@ -1,6 +1,6 @@
 import "./events";
 import { join } from "node:path";
-import { definePlugin } from "@valethq/sdk";
+import { definePlugin, type Logger } from "@valethq/sdk";
 import { type ExecConfig, settings } from "./config";
 import { Jobs } from "./db";
 import { JobManager } from "./jobs";
@@ -11,13 +11,30 @@ import { execTool, processTool, type ToolDeps } from "./tools";
 
 const PRUNE_EVERY_MS = 6 * 3_600_000;
 
+export async function activationRunner(
+  want: ExecConfig["runner"],
+  log: Pick<Logger, "warn">,
+  pick: typeof pickRunner = pickRunner,
+) {
+  try {
+    return await pick(want);
+  } catch (error) {
+    if (want === undefined || want === "auto") throw error;
+    log.warn("configured runner unavailable; falling back to auto", {
+      runner: want,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return pick("auto");
+  }
+}
+
 export default definePlugin<ExecConfig>({
   async activate(ctx) {
     let current = settings(ctx.config);
     ctx.store.partTypes.define(JOB_END);
     let stopping = false;
     await initBootId();
-    const runner = await pickRunner(ctx.config?.runner);
+    const runner = await activationRunner(ctx.config?.runner, ctx.log);
     const manager = new JobManager({
       jobs: new Jobs(ctx.storage.sql),
       dir: join(ctx.paths.data, "jobs"),
