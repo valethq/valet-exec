@@ -3,7 +3,7 @@ import { can, type Role, type ToolDefinition, type ToolResult } from "@valethq/s
 import manifest from "../manifest.json";
 import execPlugin from "../src/index";
 import { announce } from "../src/notify";
-import { detachedRunner } from "../src/runner";
+import { detachedRunner, supervisorRunner } from "../src/runner";
 import { type Fake, caller, fakeCtx } from "./fakeCtx";
 import { harness, waitFor } from "./helpers";
 
@@ -137,10 +137,11 @@ describe("output topics", () => {
 });
 
 describe("completion wake", () => {
-  const base = { cwd: "/tmp", onExit: "notify" as const, command: "true", background: true };
+  const runner = process.platform === "win32" ? supervisorRunner() : detachedRunner;
+  const base = { cwd: "/tmp", onExit: "notify" as const, command: "echo ok", background: true };
 
   test("a job stores its runId and the wake posts as that run", async () => {
-    const h = harness(detachedRunner);
+    const h = harness(runner);
     try {
       const job = await h.manager.start({ ...base, sessionId: "ses_1", runId: "run_7", principalId: "boss" });
       expect(h.manager.get(job.id)).toMatchObject({ runId: "run_7", principalId: "boss" });
@@ -155,7 +156,7 @@ describe("completion wake", () => {
   });
 
   test("a job with no runId wakes as the principal alone", async () => {
-    const h = harness(detachedRunner);
+    const h = harness(runner);
     try {
       const job = await h.manager.start({ ...base, sessionId: "ses_1", principalId: "boss" });
       expect(h.manager.get(job.id)?.runId).toBeNull();
