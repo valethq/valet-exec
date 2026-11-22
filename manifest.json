@@ -11,6 +11,18 @@
   "events": {
     "namespace": "exec"
   },
+  "acl": {
+    "permissions": {
+      "run": {
+        "summary": "Run shell commands and manage jobs",
+        "default": "owner"
+      },
+      "output.read": {
+        "summary": "Read job output topics",
+        "default": "owner"
+      }
+    }
+  },
   "settings": {
     "sections": {
       "tools": {

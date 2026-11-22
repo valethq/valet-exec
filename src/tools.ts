@@ -8,6 +8,7 @@ import type { Job } from "./db";
 import { duration, elapsed, failed, oneLine, statusText } from "./format";
 import type { JobManager } from "./jobs";
 import { excerpt, readRange, sizeOf } from "./output";
+import { RUN_PERMISSION } from "./shellAccess";
 
 export interface ToolDeps {
   manager: JobManager;
@@ -101,10 +102,6 @@ function resolveCwd(deps: ToolDeps, call: ToolCall, asked: string | undefined): 
   return asked ? resolve(base, expandHome(asked)) : base;
 }
 
-function ownerOnly(call: ToolCall): ToolResult | undefined {
-  return call.role === "owner" ? undefined : text("exec is only available to the owner.", true);
-}
-
 const execDescription = (
   deps: ToolDeps,
 ) => `Run a shell command (${shellPhrase(deps.settings().shell)}) on the host. Use this for anything you would do in a terminal: builds, tests, git, package managers, system administration.
@@ -129,6 +126,7 @@ export function execTool(deps: ToolDeps): ToolDefinition<ExecInput> {
     name: "exec",
     description: execDescription(deps),
     minRole: "owner",
+    permission: RUN_PERMISSION,
     inputSchema: {
       type: "object",
       required: ["command"],
@@ -162,8 +160,6 @@ export function execTool(deps: ToolDeps): ToolDefinition<ExecInput> {
       },
     },
     async invoke(input, call) {
-      const denied = ownerOnly(call);
-      if (denied) return denied;
       if (typeof input?.command !== "string" || !input.command.trim()) {
         return text("exec needs a non-empty command.", true);
       }
@@ -238,6 +234,7 @@ export function processTool(deps: ToolDeps): ToolDefinition<ProcessInput> {
     name: "process",
     description: processDescription(deps),
     minRole: "owner",
+    permission: RUN_PERMISSION,
     inputSchema: {
       type: "object",
       required: ["action"],
@@ -253,8 +250,6 @@ export function processTool(deps: ToolDeps): ToolDefinition<ProcessInput> {
       },
     },
     async invoke(input, call) {
-      const denied = ownerOnly(call);
-      if (denied) return denied;
       const s = deps.settings();
       if (input?.action === "list") {
         const jobs = deps.manager.recentJobs(20);

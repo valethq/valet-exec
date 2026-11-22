@@ -7,6 +7,7 @@ import { JobManager } from "./jobs";
 import { announce, JOB_END, summary } from "./notify";
 import { initBootId } from "./platform";
 import { pickRunner } from "./runner";
+import { shellProvider, shellTool } from "./shellAccess";
 import { execTool, processTool, type ToolDeps } from "./tools";
 
 const PRUNE_EVERY_MS = 6 * 3_600_000;
@@ -76,12 +77,9 @@ export default definePlugin<ExecConfig>({
       current = settings(next);
     });
 
-    // Job output topics carry raw shell output: owner only, like the tools.
-    ctx.events.before("control.request", (e) => {
-      const { kind, path } = e.payload;
-      if (kind === "ws.sub" && path.startsWith("exec:") && e.caller.actor?.role !== "owner") {
-        e.deny("exec output is owner-only");
-      }
+    ctx.ws.topic("exec:", {
+      permission: "exec:output.read",
+      resource: (topic) => ({ id: `job:${topic.slice(5)}` }),
     });
 
     const deps: ToolDeps = {
@@ -91,7 +89,9 @@ export default definePlugin<ExecConfig>({
       runner: runner.kind,
       stopping: () => stopping || ctx.signal.aborted,
     };
-    const tools = [execTool(deps), processTool(deps)];
-    ctx.scopes.provide("tools", { list: ({ role }) => (role === "owner" ? tools : []) });
+    ctx.scopes.provide(
+      "tools",
+      shellProvider(ctx, [shellTool(execTool(deps), ctx), shellTool(processTool(deps), ctx)]),
+    );
   },
 });
