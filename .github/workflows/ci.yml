@@ -25,14 +25,17 @@ jobs:
         with:
           repository: valethq/valet-core
           path: valet-core
+          ref: acl-transport
       - uses: actions/checkout@v4
         with:
           repository: valethq/valet-agent
           path: valet-agent
+          ref: acl-transport
       - uses: actions/checkout@v4
         with:
           repository: valethq/valet-contextmanager
           path: valet-contextmanager
+          ref: acl-transport
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: "1.4.4"
@@ -43,4 +46,16 @@ jobs:
         working-directory: valet-agent
       - run: bun install --frozen-lockfile
         working-directory: valet-contextmanager
+      - name: Link local SDK for ACL branches
+        working-directory: valet-core/packages/sdk
+        run: bun link
+      - name: Link local SDK into exec
+        working-directory: valet-exec
+        run: bun link @valethq/sdk
+      - name: Link local SDK into agent
+        working-directory: valet-agent
+        run: bun link @valethq/sdk
+      - name: Link local SDK into contextmanager
+        working-directory: valet-contextmanager
+        run: bun link @valethq/sdk
       - run: bun test
