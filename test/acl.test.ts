@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
+import { tmpdir } from "node:os";
 import { can, type Role, type ToolDefinition, type ToolResult } from "@valethq/sdk";
 import manifest from "../manifest.json";
 import execPlugin from "../src/index";
@@ -138,7 +139,7 @@ describe("output topics", () => {
 
 describe("completion wake", () => {
   const runner = process.platform === "win32" ? supervisorRunner() : detachedRunner;
-  const base = { cwd: "/tmp", onExit: "notify" as const, command: "echo ok", background: true };
+  const base = { cwd: tmpdir(), onExit: "notify" as const, command: "echo ok", background: true };
 
   test("a job stores its runId and the wake posts as that run", async () => {
     const h = harness(runner);
@@ -146,6 +147,7 @@ describe("completion wake", () => {
       const job = await h.manager.start({ ...base, sessionId: "ses_1", runId: "run_7", principalId: "boss" });
       expect(h.manager.get(job.id)).toMatchObject({ runId: "run_7", principalId: "boss" });
       const ended = await waitFor(() => h.ended[0]);
+      expect(ended).toMatchObject({ status: "exited", exitCode: 0 });
       const fake = fakeCtx({ roles });
       await announce(fake.ctx, ended);
       expect(fake.asCalls).toEqual([{ principalId: "boss", runId: "run_7" }]);
@@ -161,6 +163,7 @@ describe("completion wake", () => {
       const job = await h.manager.start({ ...base, sessionId: "ses_1", principalId: "boss" });
       expect(h.manager.get(job.id)?.runId).toBeNull();
       const ended = await waitFor(() => h.ended[0]);
+      expect(ended).toMatchObject({ status: "exited", exitCode: 0 });
       const fake = fakeCtx({ roles });
       await announce(fake.ctx, ended);
       expect(fake.asCalls).toEqual([{ principalId: "boss" }]);
