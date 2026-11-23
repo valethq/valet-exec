@@ -60,7 +60,11 @@ export async function announce(ctx: PluginContext<ExecConfig>, job: Job): Promis
   const line = `exec job ${job.id} ${statusText(job)} after ${duration(elapsed(job))}: ${oneLine(job.label ?? job.command, 100)}`;
   const text = `[valet-exec] ${line}\n\nLast output:\n${tail || "(none)"}\n\n(process log with jobId ${job.id} has the full log.)`;
   const label = oneLine(job.label ?? job.command, 100);
-  await ctx.store.as({ principalId: job.principalId }).messages.create({
+  // spec-gap: valet-agent refuses derived work without a valid origin run, so a job from before runId was stored wakes nothing.
+  const actor = job.runId
+    ? { principalId: job.principalId, runId: job.runId }
+    : { principalId: job.principalId };
+  await ctx.store.as(actor).messages.create({
     sessionId: job.sessionId,
     role: "system",
     authorPrincipalId: job.principalId,

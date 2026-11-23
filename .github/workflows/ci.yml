@@ -7,6 +7,7 @@ on:
 
 # The kernel test loads sibling checkouts (../valet-core, ../valet-agent, ../valet-contextmanager),
 # so this repo goes into a subfolder of the workspace next to them.
+# Sibling ACL branches are still unmerged, so pin their current heads for the kernel test; @valethq/sdk comes from npm 0.6.0.
 jobs:
   test:
     strategy:
@@ -25,14 +26,17 @@ jobs:
         with:
           repository: valethq/valet-core
           path: valet-core
+          ref: 737cb0ab2eb406855677712a7ef8a2411922cd32
       - uses: actions/checkout@v4
         with:
           repository: valethq/valet-agent
           path: valet-agent
+          ref: ccf9088f46a2e3aa58ad56416ce73dea6201b677
       - uses: actions/checkout@v4
         with:
           repository: valethq/valet-contextmanager
           path: valet-contextmanager
+          ref: e436e6eb3569db522204bc04f0e82798bcc513f7
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: "1.4.4"
