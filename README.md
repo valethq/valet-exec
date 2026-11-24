@@ -16,8 +16,7 @@ jobs outlive valet. Owner only: both tools are hidden from and refuse `trusted` 
 - The working directory persists per session, like a terminal: a trailing `cd` sticks for the next call.
 - Output in a result is cut to the first 2 KB and last 30 KB; `process log` pages the full log.
 - stdin is empty unless `stdin: true`, which opens a pipe that `process write` feeds (a FIFO on Linux and macOS, a file the supervisor tails on Windows). No PTY.
-- Also accepts Claude Code's Bash input shape (`timeout` in ms, `run_in_background`), so
-  `toolAliases: { "Bash": "mcp__valet__exec" }` in valet-claudecode works.
+- Also accepts common Bash-style input fields (`timeout` in ms, `run_in_background`) for harnesses that alias their shell tool to `exec`.
 
 `process { action: list | poll | log | write | kill, jobId?, waitMs?, offset?, limit?, data?, eof?, signal? }`
 
@@ -96,7 +95,7 @@ When a background job ends, the plugin posts a `system` message holding one `val
 plugin-defined part type (ARCHITECTURE 9.4) that the plugin registers on activate. People see its title,
 "Process finished: <label> (exit 0, 30s)", collapsed. The model sees its text: the status and the last 2 KB of the
 log. `data` carries `jobId`, `status`, `exitCode`, `killReason`, `label` and `durationMs`. The type `wakes`, so
-valet-agent runs on it like a user message, under the role of the principal who started the job.
+it triggers a run like a user message, under the role of the principal who started the job.
 
 ## Events
 
@@ -127,18 +126,6 @@ valet-agent runs on it like a user message, under the role of the principal who 
 All keys are optional. `inheritEnv` starts jobs with valet's environment (minus systemd's own variables such as
 `NOTIFY_SOCKET`); the env file is mode 0600 and deleted as soon as the wrapper has read it.
 `shell` can be a full path (`C:\\Program Files\\PowerShell\\7\\pwsh.exe`); PowerShell and cmd.exe are recognised by file name.
-
-## Replacing Claude Code's Bash
-
-With valet-exec loaded, Claude Code sessions see `mcp__valet__exec` and `mcp__valet__process`. To take Bash
-away, set this in valet-claudecode's config:
-
-```json
-{ "denyTools": ["Bash"], "toolAliases": { "Bash": "mcp__valet__exec" } }
-```
-
-`denyTools` removes Bash from the model's tool list. The alias catches the odd skill or habit that still emits a
-Bash call.
 
 ## Checks
 
